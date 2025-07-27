@@ -129,7 +129,9 @@
     </div>
 
     <script type="module">
-        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+        // === YAHAN BADLAV KIYA GAYA HAI ===
+        // Library ko import karne ka sahi tareeka
+        import { ChatModule } from "https://esm.run/@mlc-ai/web-llm";
 
         const chatLog = document.getElementById('chat-log');
         const inputForm = document.getElementById('input-form');
@@ -138,7 +140,6 @@
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
 
-        // Disable input until model is loaded
         sendButton.disabled = true;
         userInput.disabled = true;
 
@@ -152,12 +153,11 @@
         }
 
         async function main() {
-            // This is the AI model we will use. It's a quantized version of Gemma 2B.
             const SELECTED_MODEL = "gemma-2b-it-q4f32_1";
+            
+            // === YAHAN BHI BADLAV KIYA GAYA HAI ===
+            const chat = new ChatModule();
 
-            const chat = new webllm.ChatModule();
-
-            // This function updates the loading progress on the screen
             chat.setInitProgressCallback((report) => {
                 loadingText.textContent = report.text;
             });
@@ -166,7 +166,6 @@
             await chat.reload(SELECTED_MODEL);
             console.log("Model loaded successfully!");
             
-            // Hide the loading overlay and enable the chat
             loadingOverlay.style.display = 'none';
             sendButton.disabled = false;
             userInput.disabled = false;
@@ -186,14 +185,12 @@
                 
                 let fullReply = "";
                 const stream = chat.generate(userText, (step, message) => {
-                    // This streams the reply, showing words as they are generated
                     fullReply += message;
-                    botMessageDiv.textContent = fullReply + "▌"; // Blinking cursor effect
+                    botMessageDiv.textContent = fullReply + "▌";
                 });
                 
-                // Wait for the full reply to be generated
                 await stream; 
-                botMessageDiv.textContent = fullReply; // Final reply without cursor
+                botMessageDiv.textContent = fullReply;
                 
                 sendButton.disabled = false;
                 userInput.focus();
