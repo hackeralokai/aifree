@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alok's Local AI Bot</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 800px;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .header {
+            padding: 15px;
+            background-color: #333;
+            text-align: center;
+            border-bottom: 1px solid #444;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        .header p {
+            margin: 5px 0 0;
+            font-size: 0.9em;
+            color: #999;
+        }
+        #chat-log {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .user-message {
+            background-color: #0055ff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            background-color: #3a3a3a;
+            color: #e0e0e0;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .input-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #444;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #555;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+        #send-button {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            background-color: #0055ff;
+            color: white;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        #send-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            text-align: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="header">
+            <h1>Alok's Local AI</h1>
+            <p>Credit by Alok (No API Key Needed)</p>
+        </div>
+        <div id="chat-log">
+            </div>
+        <form id="input-form" class="input-form">
+            <input type="text" id="user-input" placeholder="Ask anything..." autocomplete="off">
+            <button type="submit" id="send-button">Send</button>
+        </form>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay">
+        <div id="loading-text">Initializing AI Engine... Please wait.</div>
+    </div>
+
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+        const chatLog = document.getElementById('chat-log');
+        const inputForm = document.getElementById('input-form');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+
+        // Disable input until model is loaded
+        sendButton.disabled = true;
+        userInput.disabled = true;
+
+        function appendMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', `${sender}-message`);
+            messageDiv.textContent = text;
+            chatLog.appendChild(messageDiv);
+            chatLog.scrollTop = chatLog.scrollHeight;
+            return messageDiv;
+        }
+
+        async function main() {
+            // This is the AI model we will use. It's a quantized version of Gemma 2B.
+            const SELECTED_MODEL = "gemma-2b-it-q4f32_1";
+
+            const chat = new webllm.ChatModule();
+
+            // This function updates the loading progress on the screen
+            chat.setInitProgressCallback((report) => {
+                loadingText.textContent = report.text;
+            });
+
+            console.log("Loading model...");
+            await chat.reload(SELECTED_MODEL);
+            console.log("Model loaded successfully!");
+            
+            // Hide the loading overlay and enable the chat
+            loadingOverlay.style.display = 'none';
+            sendButton.disabled = false;
+            userInput.disabled = false;
+            userInput.focus();
+            appendMessage("Hi! I'm Alok's local AI, running completely in your browser. How can I help you?", "bot");
+
+            inputForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const userText = userInput.value.trim();
+                if (userText === '' || sendButton.disabled) return;
+
+                appendMessage(userText, 'user');
+                userInput.value = '';
+                sendButton.disabled = true;
+
+                const botMessageDiv = appendMessage("Thinking...", "bot");
+                
+                let fullReply = "";
+                const stream = chat.generate(userText, (step, message) => {
+                    // This streams the reply, showing words as they are generated
+                    fullReply += message;
+                    botMessageDiv.textContent = fullReply + "▌"; // Blinking cursor effect
+                });
+                
+                // Wait for the full reply to be generated
+                await stream; 
+                botMessageDiv.textContent = fullReply; // Final reply without cursor
+                
+                sendButton.disabled = false;
+                userInput.focus();
+            });
+        }
+
+        main();
+    </script>
+</body>
+</html>
